@@ -37,6 +37,8 @@ SEARCH_CONTEXT_CHARS = int(os.getenv("SEARCH_CONTEXT_CHARS", "12000"))
 
 class ReportRequest(BaseModel):
     target: str = Field(..., min_length=1, description="企业或行业分析目标")
+    analysis_years: int = Field(5, ge=1, le=10, description="分析回看年限")
+    analysis_lens: str = Field("综合", description="分析视角")
     report_mode: Optional[str] = Field(None, description="deep_research 或 jina_llm")
     api_key: Optional[str] = Field(None, description="本次请求使用的 API Key")
     base_url: Optional[str] = Field(None, description="OpenAI-compatible API 地址")
@@ -49,7 +51,12 @@ SYSTEM_PROMPT = """
 
 请针对用户指定的目标，通过检索最新（2026年）的真实市场数据、财报、新闻和行业白皮书，生成一份具备高商业价值的 Markdown 分析报告。
 
-报告必须严格包含以下四个板块：
+借鉴专业投研工具的产品逻辑：先搭建“数据骨架”，再做观点推演。报告开头必须先给出：
+- 核心指标仪表盘：用表格列出市场份额、收入/利润增长、估值或融资指标、现金流/资产质量、竞争强度、数据置信度；没有可靠数据时写“待核验”，不要编造。
+- 证据清单：列出 5-8 条最关键来源、日期、链接、对应结论。
+- 阅读路线：用 3-5 条 bullet 告诉读者应该先看哪些风险/机会。
+
+随后报告必须严格包含以下四个板块：
 
 1. 市场份额与行业格局 (Market Share & Landscape)
 - 提供该企业在所属行业/细分领域的最新市场份额百分比，必须引用可考证的最新数据或权威第三方调研机构预测。
@@ -129,8 +136,11 @@ def get_llm_config(request: ReportRequest):
     )
 
 
-def fetch_search_context(target: str, jina_api_key: str = ""):
-    query = f"{target} 市场份额 竞争分析 财报 行业报告 2026"
+def fetch_search_context(target: str, analysis_years: int, analysis_lens: str, jina_api_key: str = ""):
+    query = (
+        f"{target} 市场份额 竞争分析 财报 行业报告 2026 "
+        f"近{analysis_years}年 {analysis_lens}"
+    )
     encoded_query = urllib.parse.quote(query)
     jina_url = f"{JINA_SEARCH_BASE_URL}{encoded_query}"
     headers = {}
@@ -156,9 +166,23 @@ def fetch_search_context(target: str, jina_api_key: str = ""):
         return "", f"Jina 搜索请求失败：{exc}"
 
 
-def build_messages(target: str, search_context: str = "", search_warning: str = ""):
+def build_messages(
+    target: str,
+    analysis_years: int,
+    analysis_lens: str,
+    search_context: str = "",
+    search_warning: str = "",
+):
+    report_brief = (
+        f"分析目标：{target}\n"
+        f"分析回看年限：近 {analysis_years} 年\n"
+        f"优先分析视角：{analysis_lens}\n\n"
+        "请像专业投研产品一样组织输出：先给结构化指标和证据，再给解释和判断。"
+    )
+
     if search_context:
         user_content = (
+            f"{report_brief}\n\n"
             "以下是 Jina AI 实时搜索接口返回的公开资料片段。请优先基于这些资料做分析，"
             "并在报告中保留可核验来源、日期和链接；如果资料不足，请明确标注为推断或待核验。\n\n"
             f"{search_context}\n\n"
@@ -166,13 +190,14 @@ def build_messages(target: str, search_context: str = "", search_warning: str = 
         )
     elif search_warning:
         user_content = (
+            f"{report_brief}\n\n"
             f"实时搜索资料获取失败，原因：{search_warning}\n\n"
             "请在不虚构最新市场数据的前提下，基于你已有知识生成一份框架完整的商业分析报告；"
             "涉及 2026 最新数据、市场份额、新闻或财报时，必须明确标注“待实时检索核验”。\n\n"
             f"请针对目标【{target}】生成深度商业报告。"
         )
     else:
-        user_content = f"请针对以下目标生成深度分析报告：{target}"
+        user_content = f"{report_brief}\n\n请针对以下目标生成深度分析报告：{target}"
 
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -182,6 +207,8 @@ def build_messages(target: str, search_context: str = "", search_warning: str = 
 
 def build_report_request(request: ReportRequest):
     target = validate_target(request.target)
+    analysis_years = max(1, min(10, request.analysis_years))
+    analysis_lens = request.analysis_lens.strip() if request.analysis_lens else "综合"
     api_key, base_url, model, report_mode = get_llm_config(request)
     search_context = ""
     search_warning = ""
@@ -192,9 +219,17 @@ def build_report_request(request: ReportRequest):
         )
         search_context, search_warning = fetch_search_context(
             target,
+            analysis_years,
+            analysis_lens,
             validate_header_value(request_jina_key or JINA_API_KEY, "Jina API Key"),
         )
-    return api_key, base_url, model, build_messages(target, search_context, search_warning), search_warning
+    return (
+        api_key,
+        base_url,
+        model,
+        build_messages(target, analysis_years, analysis_lens, search_context, search_warning),
+        search_warning,
+    )
 
 
 @app.post("/api/generate_report")

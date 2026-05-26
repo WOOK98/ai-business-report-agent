@@ -10,7 +10,7 @@ st.set_page_config(
 )
 
 st.title("📊 智能 Agent 商业分析报告系统")
-st.subheader("一键生成包含市场份额、抗脆弱性评估及投资建议的深度报告")
+st.subheader("先搭建指标骨架，再生成市场份额、竞争格局、抗脆弱性和投资建议")
 
 st.sidebar.header("模型配置")
 mode_label = st.sidebar.selectbox(
@@ -44,7 +44,25 @@ with st.form("report_form"):
         "分析目标（公司或行业）",
         placeholder="例如: 瑞幸咖啡 / Tesla 2026 / 北美储能电池市场",
     )
+    col_years, col_lens = st.columns([1, 2])
+    with col_years:
+        analysis_years = st.slider("分析回看年限", min_value=1, max_value=10, value=5)
+    with col_lens:
+        analysis_lens = st.selectbox(
+            "优先分析视角",
+            ["综合", "估值与财务质量", "市场份额与竞争格局", "现金流与资产质量", "抗脆弱性与风险", "增长与商业模式"],
+        )
     generate_btn = st.form_submit_button("启动 Agent 深度调研", type="primary")
+
+with st.expander("输出结构", expanded=False):
+    st.markdown(
+        """
+        - 核心指标仪表盘：先列关键数据、置信度和待核验项
+        - 证据清单：来源、日期、链接、支撑结论
+        - 阅读路线：先看机会、风险和关键判断
+        - 四大正文：市场格局、竞争分析、抗脆弱性、投资建议
+        """
+    )
 
 STREAM_API_URL = "http://127.0.0.1:8000/api/generate_report_stream"
 
@@ -86,6 +104,8 @@ if generate_btn:
                 target = target_input.strip()
                 payload = {
                     "target": target,
+                    "analysis_years": analysis_years,
+                    "analysis_lens": analysis_lens,
                     "report_mode": report_mode,
                     "api_key": api_key_input.strip() or None,
                     "base_url": base_url_input.strip() or None,
