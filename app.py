@@ -1,3 +1,5 @@
+import re
+
 import requests
 import streamlit as st
 
@@ -90,6 +92,78 @@ def stream_report(payload: dict):
                 yield chunk
 
 
+def default_metrics(target: str, years: int, lens: str):
+    return [
+        {"label": "分析标的", "value": target, "sub": f"近 {years} 年 | {lens}"},
+        {"label": "市场份额", "value": "待核验", "sub": "需引用权威来源"},
+        {"label": "增长质量", "value": "待核验", "sub": "收入/利润/用户"},
+        {"label": "竞争强度", "value": "待核验", "sub": "直接竞品与替代品"},
+        {"label": "现金流/资产", "value": "待核验", "sub": "经营现金流与负债"},
+        {"label": "抗脆弱性", "value": "待判断", "sub": "冲击中是否受益"},
+    ]
+
+
+def extract_metric_cards(markdown: str, fallback_cards: list[dict]):
+    cards = [card.copy() for card in fallback_cards]
+    patterns = {
+        "市场份额": r"(市场份额|份额)[^|\n]*\|[^|\n]*?([0-9]+(?:\.[0-9]+)?%)",
+        "增长质量": r"(收入|利润|营收|增长)[^|\n]*\|[^|\n]*?([+-]?[0-9]+(?:\.[0-9]+)?%)",
+        "竞争强度": r"(竞争强度|竞争格局|竞争)[^|\n]*\|[^|\n]*?([^|\n]{2,20})",
+        "现金流/资产": r"(现金流|资产质量|负债)[^|\n]*\|[^|\n]*?([^|\n]{2,20})",
+        "抗脆弱性": r"(抗脆弱性|抗脆弱)[^|\n]*\|[^|\n]*?([^|\n]{2,20})",
+    }
+    for card in cards:
+        pattern = patterns.get(card["label"])
+        if not pattern:
+            continue
+        match = re.search(pattern, markdown)
+        if match:
+            card["value"] = match.group(2).strip()
+            card["sub"] = "来自报告自动抽取"
+    return cards
+
+
+def render_metric_card(card: dict):
+    st.markdown(
+        f"""
+        <div style="
+            border:1px solid #e4d5bb;
+            border-radius:8px;
+            padding:14px 14px 12px;
+            background:#fffaf3;
+            box-shadow:0 1px 8px rgba(0,0,0,.04);
+            min-height:96px;
+        ">
+            <div style="font-size:12px;color:#8d7b68;margin-bottom:8px;">{card["label"]}</div>
+            <div style="font-size:24px;font-weight:700;color:#3d2f22;line-height:1.1;">{card["value"]}</div>
+            <div style="font-size:11px;color:#a89880;margin-top:8px;">{card["sub"]}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_dashboard(cards: list[dict], search_status: str = "等待生成"):
+    st.markdown("#### 指标仪表盘")
+    first, second = st.columns(2)
+    for index, card in enumerate(cards):
+        with first if index % 2 == 0 else second:
+            render_metric_card(card)
+            st.write("")
+    st.caption(f"资料状态：{search_status}")
+
+
+def render_workflow(years: int, lens: str):
+    st.markdown("#### 阅读路线")
+    st.markdown(
+        f"""
+        1. 先看近 `{years}` 年关键指标是否有真实来源。
+        2. 再看 `{lens}` 是否支持投资结论。
+        3. 最后检查黑天鹅/灰犀牛风险是否改变仓位建议。
+        """
+    )
+
+
 if generate_btn:
     if not target_input.strip():
         st.warning("⚠️ 请先在左侧输入分析目标！")
@@ -113,17 +187,31 @@ if generate_btn:
                     "jina_api_key": jina_api_key_input.strip() or None,
                 }
                 chunks = []
-                report_box = st.container()
+                dashboard_col, report_col = st.columns([0.9, 1.7], gap="large")
+                base_cards = default_metrics(target, analysis_years, analysis_lens)
 
                 def capture_stream():
                     for chunk in stream_report(payload):
                         chunks.append(chunk)
                         yield chunk
 
-                with report_box:
+                with dashboard_col:
+                    render_dashboard(base_cards)
+                    render_workflow(analysis_years, analysis_lens)
+                    with st.expander("证据与来源", expanded=True):
+                        st.caption("报告生成后，请优先查看右侧“证据清单”。仪表盘中的数值会尽量从报告表格自动抽取。")
+
+                with report_col:
+                    st.markdown("#### AI 解读")
                     st.write_stream(capture_stream)
 
                 report_markdown = "".join(chunks)
+                updated_cards = extract_metric_cards(report_markdown, base_cards)
+                if updated_cards != base_cards:
+                    with dashboard_col:
+                        st.markdown("---")
+                        render_dashboard(updated_cards, "已从报告中抽取部分指标")
+
                 st.success("✅ 报告生成成功！")
                 st.download_button(
                     label="📥 下载 Markdown 报告",
