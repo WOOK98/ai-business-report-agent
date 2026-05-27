@@ -1,5 +1,6 @@
 import base64
 import re
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -25,6 +26,9 @@ def image_data_uri(path: Path) -> str:
 
 
 HERO_BG = image_data_uri(HERO_IMAGE)
+
+if "report_history" not in st.session_state:
+    st.session_state.report_history = []
 
 st.markdown(
     f"""
@@ -63,7 +67,7 @@ st.markdown(
         padding-bottom: 4rem;
     }}
     .od-hero {{
-        min-height: 300px;
+        min-height: 286px;
         padding: 30px 32px;
         border: 1px solid var(--hairline);
         border-radius: 8px;
@@ -74,6 +78,55 @@ st.markdown(
         background-position: center;
         box-shadow: 0 18px 48px rgba(61, 47, 34, .10);
         margin-bottom: 22px;
+    }}
+    .od-topbar {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        padding: 13px 16px;
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        background: rgba(255,250,243,.84);
+        margin-bottom: 16px;
+        box-shadow: 0 8px 24px rgba(61, 47, 34, .06);
+    }}
+    .od-brand {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 800;
+        color: var(--ink);
+    }}
+    .od-logo {{
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        background: linear-gradient(135deg, #c5a35f, #55775f);
+        box-shadow: 0 8px 18px rgba(91, 70, 41, .18);
+        font-size: 13px;
+    }}
+    .od-nav {{
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }}
+    .od-nav span {{
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 8px 10px;
+        color: #7f705f;
+        font-size: 13px;
+    }}
+    .od-nav span:first-child {{
+        border-color: rgba(197,163,95,.32);
+        background: var(--gold-soft);
+        color: #8a6b2d;
+        font-weight: 700;
     }}
     .od-kicker {{
         display: inline-flex;
@@ -129,6 +182,93 @@ st.markdown(
         padding: 18px;
         box-shadow: 0 10px 28px rgba(61, 47, 34, .07);
     }}
+    .od-mini-grid {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 14px 0 0;
+    }}
+    .od-mini-card {{
+        border: 1px solid #e4d5bb;
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(255,250,243,.72);
+        min-height: 82px;
+    }}
+    .od-mini-card b {{
+        color: var(--ink);
+        font-size: 18px;
+    }}
+    .od-mini-card span {{
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 5px;
+        line-height: 1.45;
+    }}
+    .od-pipeline {{
+        display: grid;
+        gap: 10px;
+        margin-top: 8px;
+    }}
+    .od-step {{
+        display: grid;
+        grid-template-columns: 26px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 10px;
+        border: 1px solid #e7d9c0;
+        border-radius: 8px;
+        background: rgba(255, 248, 239, .78);
+    }}
+    .od-step-num {{
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: #55775f;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 800;
+    }}
+    .od-step-title {{
+        color: var(--ink);
+        font-weight: 760;
+        font-size: 13px;
+        line-height: 1.35;
+    }}
+    .od-step-desc {{
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+        margin-top: 3px;
+    }}
+    .od-report-frame {{
+        border: 1px solid var(--hairline);
+        border-radius: 8px;
+        background: rgba(255,253,249,.88);
+        padding: 16px 18px;
+        box-shadow: 0 10px 28px rgba(61,47,34,.06);
+    }}
+    .od-history-item {{
+        border-bottom: 1px solid #eadcc7;
+        padding: 10px 0;
+    }}
+    .od-history-item:last-child {{
+        border-bottom: none;
+    }}
+    .od-history-title {{
+        color: var(--ink);
+        font-weight: 760;
+        font-size: 13px;
+    }}
+    .od-history-meta {{
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 3px;
+    }}
     .od-section-title {{
         display: flex;
         align-items: center;
@@ -173,7 +313,34 @@ st.markdown(
     h1, h2, h3, h4 {{
         letter-spacing: 0 !important;
     }}
+    @media (max-width: 900px) {{
+        .od-hero h1 {{
+            font-size: 34px;
+        }}
+        .od-topbar {{
+            align-items: flex-start;
+            flex-direction: column;
+        }}
+        .od-mini-grid {{
+            grid-template-columns: 1fr;
+        }}
+    }}
     </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <nav class="od-topbar">
+        <div class="od-brand"><span class="od-logo">AI</span><span>Business Intelligence Agent</span></div>
+        <div class="od-nav">
+            <span>研究工作台</span>
+            <span>报告库</span>
+            <span>来源审计</span>
+            <span>系统设置</span>
+        </div>
+    </nav>
     """,
     unsafe_allow_html=True,
 )
@@ -189,6 +356,11 @@ st.markdown(
             <span class="od-chip">Competitive Forces</span>
             <span class="od-chip">Antifragility</span>
             <span class="od-chip">Evidence-first Report</span>
+        </div>
+        <div class="od-mini-grid">
+            <div class="od-mini-card"><b>01</b><span>先形成指标骨架，避免长报告只剩文字判断。</span></div>
+            <div class="od-mini-card"><b>02</b><span>报告正文与证据清单并排，便于核验来源。</span></div>
+            <div class="od-mini-card"><b>03</b><span>按任务流沉淀结果，后续可升级为账户、数据库和报告库。</span></div>
         </div>
     </section>
     """,
@@ -245,6 +417,16 @@ with st.expander("输出结构", expanded=False):
         - 证据清单：来源、日期、链接、支撑结论
         - 阅读路线：先看机会、风险和关键判断
         - 四大正文：市场格局、竞争分析、抗脆弱性、投资建议
+        """
+    )
+
+with st.expander("从 core_starter-main 借鉴的产品结构", expanded=False):
+    st.markdown(
+        """
+        - `apps/web` 的主应用思路：把生成入口、结果展示、系统配置拆成稳定区域。
+        - `packages/api` 的分层思路：前端只关心任务参数，后端封装模型、搜索和错误处理。
+        - `packages/shared` 的通用能力思路：把指标、来源、报告状态做成可复用的数据结构。
+        - `packages/auth/db/storage` 的扩展方向：后续支持登录、保存报告、导出 PDF、团队共享。
         """
     )
 
@@ -337,6 +519,31 @@ def render_dashboard(cards: list[dict], search_status: str = "等待生成"):
     st.markdown("</div>", unsafe_allow_html=True)
 
 
+def render_pipeline(report_mode_label: str, years: int, lens: str):
+    st.markdown('<div class="od-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="od-section-title">Research Pipeline</div>', unsafe_allow_html=True)
+    steps = [
+        ("参数入队", f"{report_mode_label} | 近 {years} 年 | {lens}"),
+        ("资料检索", "搜索市场份额、财报、行业报告和新闻线索"),
+        ("指标抽取", "优先抽取份额、增长、现金流、估值和竞争强度"),
+        ("观点生成", "输出四段式商业报告与投资建议"),
+    ]
+    step_html = "".join(
+        (
+            f'<div class="od-step">'
+            f'<div class="od-step-num">{index}</div>'
+            f"<div>"
+            f'<div class="od-step-title">{title}</div>'
+            f'<div class="od-step-desc">{desc}</div>'
+            f"</div>"
+            f"</div>"
+        )
+        for index, (title, desc) in enumerate(steps, start=1)
+    )
+    st.markdown(f'<div class="od-pipeline">{step_html}</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_workflow(years: int, lens: str):
     st.markdown('<div class="od-panel">', unsafe_allow_html=True)
     st.markdown('<div class="od-section-title">阅读路线</div>', unsafe_allow_html=True)
@@ -345,6 +552,53 @@ def render_workflow(years: int, lens: str):
         1. 先看近 `{years}` 年关键指标是否有真实来源。
         2. 再看 `{lens}` 是否支持投资结论。
         3. 最后检查黑天鹅/灰犀牛风险是否改变仓位建议。
+        """
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def save_report(target: str, lens: str, report_markdown: str):
+    st.session_state.report_history.insert(
+        0,
+        {
+            "target": target,
+            "lens": lens,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "chars": len(report_markdown),
+            "markdown": report_markdown,
+        },
+    )
+    st.session_state.report_history = st.session_state.report_history[:6]
+
+
+def render_report_history():
+    st.markdown('<div class="od-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="od-section-title">报告库</div>', unsafe_allow_html=True)
+    if not st.session_state.report_history:
+        st.caption("还没有生成报告。生成后会在本次会话中保留最近 6 份，方便对比和下载。")
+    else:
+        for item in st.session_state.report_history:
+            st.markdown(
+                f"""
+                <div class="od-history-item">
+                    <div class="od-history-title">{item["target"]}</div>
+                    <div class="od-history-meta">{item["created_at"]} | {item["lens"]} | {item["chars"]:,} 字符</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_quality_panel(mode_label: str):
+    st.markdown('<div class="od-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="od-section-title">来源审计</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        - 当前模式：`{mode_label}`
+        - 最新数据：2026 口径优先，缺来源时标注待核验
+        - 关键约束：市场份额、投资评级和风险必须能回溯到证据
+        - 体验优化：流式输出，长报告生成时右侧实时显示
         """
     )
     st.markdown("</div>", unsafe_allow_html=True)
@@ -383,15 +637,21 @@ if generate_btn:
 
                 with dashboard_col:
                     render_dashboard(base_cards)
+                    render_pipeline(mode_label, analysis_years, analysis_lens)
                     render_workflow(analysis_years, analysis_lens)
+                    render_quality_panel(mode_label)
+                    render_report_history()
                     with st.expander("证据与来源", expanded=True):
                         st.caption("报告生成后，请优先查看右侧“证据清单”。仪表盘中的数值会尽量从报告表格自动抽取。")
 
                 with report_col:
                     st.markdown('<div class="od-section-title">AI 解读</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="od-report-frame">', unsafe_allow_html=True)
                     st.write_stream(capture_stream)
+                    st.markdown("</div>", unsafe_allow_html=True)
 
                 report_markdown = "".join(chunks)
+                save_report(target, analysis_lens, report_markdown)
                 updated_cards = extract_metric_cards(report_markdown, base_cards)
                 if updated_cards != base_cards:
                     with dashboard_col:
@@ -410,7 +670,27 @@ if generate_btn:
             except requests.exceptions.RequestException as exc:
                 st.error(f"❌ 无法连接到后端服务器: {exc}")
 else:
-    st.info(
-        "💡 请在左侧侧边栏输入你想研究的企业或细分行业名称"
-        "（例如：'Tesla 2026' 或 '北美储能电池市场'），然后点击启动。"
-    )
+    preview_left, preview_right = st.columns([0.9, 1.7], gap="large")
+    with preview_left:
+        render_dashboard(default_metrics("等待输入标的", 5, "综合"))
+        render_pipeline(mode_label, 5, "综合")
+        render_quality_panel(mode_label)
+        render_report_history()
+    with preview_right:
+        st.info(
+            "💡 请在左侧侧边栏输入你想研究的企业或细分行业名称"
+            "（例如：'Tesla 2026' 或 '北美储能电池市场'），然后点击启动。"
+        )
+        st.markdown('<div class="od-report-frame">', unsafe_allow_html=True)
+        st.markdown(
+            """
+            ### AI 解读预览
+
+            报告生成后会直接显示在这里，并与左侧指标仪表盘保持并排。建议优先检查三件事：
+
+            1. 市场份额是否有明确来源与日期。
+            2. 竞争分析是否区分直接竞品、潜在进入者和替代品。
+            3. 抗脆弱性是否证明“从冲击中获益”，而不是只证明“抗压”。
+            """
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
